@@ -13,7 +13,7 @@ Real-time tracking of satellites, aircraft, maritime vessels, and seismic activi
   - ⚪ Commercial
 
 ### ✈️ Aviation Tracking
-- Global aircraft positions
+- Global aircraft positions (5 continental regions)
 - Color-coded by operator:
   - 🔴 Military
   - 🟠 Commercial airlines
@@ -21,7 +21,7 @@ Real-time tracking of satellites, aircraft, maritime vessels, and seismic activi
   - ⚪ Private / General aviation
 
 ### 🚢 Maritime AIS Tracking
-- Real-time ship positions
+- Real-time ship positions (Baltic Sea AIS)
 - Color-coded by vessel type:
   - 🟠 Cargo / Freight
   - 🟡 Tanker / Chemical
@@ -42,39 +42,40 @@ Real-time tracking of satellites, aircraft, maritime vessels, and seismic activi
 git clone https://github.com/Tigspark/osint-tracker.git
 cd osint-tracker
 
-# Open index.html in a browser
-# Or serve with any static server:
-npx serve .
+# Open in browser
+# Just open index.html directly, or serve with:
+python -m http.server 8080
+# Then visit http://localhost:8080
 ```
-
-## 📁 Project Structure
-
-- `main` branch - **OSINT Tracker** (Global Command Center)
-- `trading-bot` branch - **Crypto Trading Bot**
 
 ## 🔧 Technologies
 
 - **CesiumJS** - 3D globe visualization
-- **Satellite.js** - Orbital calculations
+- **Satellite.js** - Orbital calculations (NORAD TLE)
 - **OpenSky Network API** - Aviation data
 - **Digitraffic API** - Baltic AIS data
 - **USGS Earthquake API** - Seismic data
 
 ## ⚠️ API Notes
 
-- Aviation: Requires CORS proxy for browser access
-- Marine: Baltic Sea coverage (limited by public API)
+- Aviation: Limited to OpenSky Network coverage area
+- Marine: Baltic Sea coverage (public API limitation)
 - Satellites: Full catalog from Celestrak
 
----
+## 📁 Structure
 
-## 🤖 Trading Bot (see `trading-bot` branch)
-
-The crypto trading bot with Grid, DCA, and Mean Reversion strategies is in the `trading-bot` branch.
-
-```bash
-git checkout trading-bot
 ```
+osint-tracker/
+├── index.html    # Single file app - everything included
+└── README.md
+```
+
+## 🎮 Controls
+
+- Click ☰ menu to toggle feeds
+- Only ONE feed active at a time (prevents overload)
+- Click on any marker for details
+- Scroll/pinch to zoom, drag to pan
 
 ---
 
