@@ -8,50 +8,137 @@
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.99/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; color: #0f0; font-family: monospace; overflow: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; }
         #map-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         #menu-btn { position: absolute; top: 20px; left: 20px; z-index: 100; background: rgba(0, 40, 0, 0.9); border: 2px solid #0f0; color: #0f0; padding: 10px 15px; cursor: pointer; font-size: 20px; border-radius: 5px; box-shadow: 0 0 10px #0f0; }
-        #sidebar { position: absolute; top: 0; left: -300px; width: 280px; height: 100vh; background: rgba(0, 15, 0, 0.95); border-right: 1px solid #0f0; transition: 0.3s; z-index: 99; padding: 80px 20px 20px; box-sizing: border-box; backdrop-filter: blur(10px); overflow-y: auto; }
+        #sidebar { position: absolute; top: 0; left: -320px; width: 300px; height: 100vh; background: rgba(0, 10, 0, 0.97); border-right: 2px solid #0f0; transition: 0.3s; z-index: 99; padding: 80px 15px 20px; box-sizing: border-box; backdrop-filter: blur(10px); overflow-y: auto; }
         #sidebar.open { left: 0; }
-        .row { margin-bottom: 15px; display: flex; align-items: center; border-bottom: 1px solid #003300; padding-bottom: 10px; }
-        input[type="checkbox"] { margin-right: 15px; transform: scale(1.5); accent-color: #0f0; }
-        .legend { margin-top: 20px; font-size: 11px; }
-        .dot { height: 8px; width: 8px; border-radius: 50%; display: inline-block; margin-right: 10px; }
-        #intel { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; background: rgba(0, 10, 0, 0.95); border-top: 2px solid #0f0; padding: 15px; z-index: 10; box-sizing: border-box; border-radius: 12px 12px 0 0; }
-        table { width: 100%; color: #0f0; font-size: 13px; }
-        a { color: #00ffff; }
+        #sidebar h3 { font-size: 16px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #0f0; padding-bottom: 10px; }
+        .toggle-section { margin-bottom: 25px; }
+        .toggle-section h4 { font-size: 11px; color: #0a0; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .toggle-row { display: flex; align-items: center; margin-bottom: 8px; padding: 8px; border-bottom: 1px solid #003300; cursor: pointer; }
+        .toggle-row:hover { background: rgba(0, 255, 0, 0.1); }
+        .toggle-row input[type="checkbox"] { margin-right: 12px; transform: scale(1.3); accent-color: #0f0; cursor: pointer; }
+        .toggle-row label { font-size: 12px; cursor: pointer; flex: 1; }
+        .status { font-size: 9px; color: #0a0; margin-left: auto; }
+        .legend { margin-top: 20px; padding-top: 15px; border-top: 1px solid #0f0; }
+        .legend h4 { font-size: 11px; margin-bottom: 10px; color: #0a0; }
+        .legend-item { display: flex; align-items: center; font-size: 10px; margin-bottom: 6px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+        #intel { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; max-height: 40vh; background: rgba(0, 10, 0, 0.97); border-top: 2px solid #0f0; padding: 15px; z-index: 10; box-sizing: border-box; border-radius: 15px 15px 0 0; overflow-y: auto; }
+        #intel h4 { font-size: 14px; margin-bottom: 10px; color: #0f0; }
+        #intel table { width: 100%; color: #0f0; font-size: 12px; border-collapse: collapse; }
+        #intel td { padding: 4px 8px; border-bottom: 1px solid #003300; }
+        #intel td:first-child { color: #0a0; width: 30%; }
+        #intel a { color: #0ff; }
+        #stats { position: absolute; top: 20px; right: 20px; background: rgba(0, 10, 0, 0.9); border: 2px solid #0f0; padding: 10px 15px; z-index: 100; font-size: 11px; border-radius: 5px; }
+        #stats div { margin-bottom: 3px; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 200; text-align: center; }
+        .spinner { border: 3px solid #003300; border-top: 3px solid #0f0; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div id="map-container"></div>
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
+    
+    <div id="stats">
+        <div>🛰️ <span id="sat-count">0</span> SATS</div>
+        <div>✈️ <span id="air-count">0</span> AIRCRAFT</div>
+        <div>🚢 <span id="mar-count">0</span> VESSELS</div>
+        <div>⚠️ <span id="quake-count">0</span> QUAKES</div>
+    </div>
+    
+    <div id="loading">
+        <div>INITIALIZING GLOBAL COMMAND CENTER</div>
+        <div class="spinner"></div>
+    </div>
+    
     <div id="sidebar">
-        <h3>OSINT FEEDS</h3>
-        <div class="row"><input type="checkbox" onchange="h('sat', this.checked)"><label>FULL SAT CATALOG</label></div>
-        <div class="row"><input type="checkbox" onchange="h('air', this.checked)"><label>TACTICAL AVIATION</label></div>
-        <div class="row"><input type="checkbox" onchange="h('mar', this.checked)"><label>MARINE (BALTIC AIS)</label></div>
-        <div class="row"><input type="checkbox" onchange="h('q', this.checked)"><label>USGS QUAKES</label></div>
-        <div class="row"><input type="checkbox" onchange="h('cam', this.checked)"><label>CCTV NODES</label></div>
+        <h3>⚡ OSINT FEEDS ⚡</h3>
+        
+        <div class="toggle-section">
+            <h4>📡 Satellite Tracking</h4>
+            <div class="toggle-row">
+                <input type="checkbox" id="tog-sat" onchange="toggleFeed('sat', this.checked)">
+                <label for="tog-sat">ALL SATELLITES</label>
+                <span class="status" id="sat-status"></span>
+            </div>
+        </div>
+        
+        <div class="toggle-section">
+            <h4>✈️ Aviation</h4>
+            <div class="toggle-row">
+                <input type="checkbox" id="tog-air" onchange="toggleFeed('air', this.checked)">
+                <label for="tog-air">GLOBAL AVIATION</label>
+                <span class="status" id="air-status"></span>
+            </div>
+        </div>
+        
+        <div class="toggle-section">
+            <h4>🚢 Maritime</h4>
+            <div class="toggle-row">
+                <input type="checkbox" id="tog-mar" onchange="toggleFeed('mar', this.checked)">
+                <label for="tog-mar">AIS SHIP TRACKING</label>
+                <span class="status" id="mar-status"></span>
+            </div>
+        </div>
+        
+        <div class="toggle-section">
+            <h4>🌍 Seismic</h4>
+            <div class="toggle-row">
+                <input type="checkbox" id="tog-q" onchange="toggleFeed('q', this.checked)">
+                <label for="tog-q">EARTHQUAKES (24H)</label>
+                <span class="status" id="q-status"></span>
+            </div>
+        </div>
         
         <div class="legend">
-            <p>INTEL KEY:</p>
-            <div><span class="dot" style="background:red"></span>MILITARY/GOV</div>
-            <div><span class="dot" style="background:cyan"></span>COMMS/SHIPS</div>
-            <div><span class="dot" style="background:yellow"></span>NAV/GPS</div>
-            <div><span class="dot" style="background:lime"></span>AIRCRAFT</div>
+            <h4>📊 COLOR CODES</h4>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff3333"></div>Military / Government</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff9900"></div>Cargo / Freight</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ffff00"></div>Tanker / Chemical</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00ff00"></div>Passenger / Ferry</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00ffff"></div>Fishing / Research</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff66ff"></div>Tug / Service</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#6666ff"></div>Navigation / Buoy</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff6600"></div>Private / Other</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00ff66"></div>GPS / Starlink</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ffffff"></div>Commercial</div>
         </div>
     </div>
+    
     <div id="intel"></div>
 
     <script>
         const viewer = new Cesium.Viewer('map-container', {
-            animation: false, baseLayerPicker: false, fullscreenButton: false, geocoder: false,
-            homeButton: false, infoBox: false, sceneModePicker: false, selectionIndicator: false,
-            timeline: false, navigationHelpButton: false,
-            imageryProvider: new Cesium.UrlTemplateImageryProvider({ url : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png' })
+            animation: false,
+            baseLayerPicker: false,
+            fullscreenButton: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            sceneModePicker: false,
+            selectionIndicator: false,
+            timeline: false,
+            navigationHelpButton: false,
+            imageryProvider: new Cesium.UrlTemplateImageryProvider({ 
+                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                subdomains: ['a', 'b', 'c', 'd']
+            })
         });
 
-        const planeSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzBmMDAiPjxwYXRoIGQ9Ik0yMSA8bDItMmgzTDExIDIgOSAyaDJsOCAxME0yMSA4bC0yIDJIM2wtMiAyaDZsMiAyaDV2OGgydi04aDVsMi0yaDZsLTIgMnoiLz48L3N2Zz4=';
+        const planeSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzBmMDAiPjxwYXRoIGQ9Ik0yMSA4bC0yIDJIM2wtMiAyaDZsMiAyaDV2OGgydi04aDVsMi0yaDZsLTIgMnoiLz48L3N2Zz4=';
+        const shipSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzBmMDAiPjxwYXRoIGQ9Ik0xMiAyYTMgMyAwIDAgMCAxMiA1LjNMMjEgMTRIMTNMOSA1LjNMMTIgMnptMSAxNGgtMmw2LTZ2LTRsNiA2em0wLTRINWw0IDR2NHoiLz48L3N2Zz4=';
+
+        let loops = {};
+        let cachedTLE = null;
+        let activeFeed = null;
+        let cachedAircraft = null;
+        let cachedShips = null;
+
+        document.getElementById('loading').style.display = 'none';
 
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
 
@@ -60,120 +147,344 @@
             const panel = document.getElementById('intel');
             if (Cesium.defined(pick) && pick.id) {
                 panel.style.display = 'block';
-                panel.innerHTML = `<h4>${pick.id.name}</h4>${pick.id.description.getValue(viewer.clock.currentTime)}`;
+                panel.innerHTML = `<h4>${pick.id.name}</h4>${pick.id.description.getValue ? pick.id.description.getValue(viewer.clock.currentTime) : pick.id.description}`;
             } else { panel.style.display = 'none'; }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-        let loops = {};
-        let cachedTLE = null;
-
-        async function prefetchSats() {
-            try {
-                const r = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
-                cachedTLE = (await r.text()).trim().split('\n');
-            } catch (e) {}
-        }
-        prefetchSats();
-
-        function h(l, e) {
-            if (e) {
-                if (l === 'sat') { fS(); loops.sat = setInterval(fS, 30000); }
-                if (l === 'air') { fA(); loops.air = setInterval(fA, 15000); }
-                if (l === 'q') { fQ(); loops.q = setInterval(fQ, 60000); }
-                if (l === 'cam') fC();
-                if (l === 'mar') { fM(); loops.mar = setInterval(fM, 30000); }
-            } else { if (loops[l]) clearInterval(loops[l]); cl(l + '_'); document.getElementById('intel').style.display = 'none'; }
-        }
-
-        function cl(p) { viewer.entities.values.filter(e => e.id && e.id.startsWith(p)).forEach(e => viewer.entities.remove(e)); }
-
-        async function fS() {
-            if (!cachedTLE) await prefetchSats();
-            cl('sat_');
-            const now = new Date(); let gmst = satellite.gstime(now);
-            for (let i = 0, c = 0; i < cachedTLE.length - 2 && c < 2000; i += 3, c++) {
-                const name = cachedTLE[i].trim();
-                const rec = satellite.twoline2satrec(cachedTLE[i+1], cachedTLE[i+2]);
-                const pEci = satellite.propagate(rec, now).position;
-                if (pEci) {
-                    const pGd = satellite.eciToGeodetic(pEci, gmst);
-                    let satColor = Cesium.Color.WHITE;
-                    if (name.includes('USA') || name.includes('COSMOS')) satColor = Cesium.Color.RED;
-                    else if (name.includes('STARLINK') || name.includes('IRIDIUM')) satColor = Cesium.Color.CYAN;
-                    else if (name.includes('GPS') || name.includes('GALILEO')) satColor = Cesium.Color.YELLOW;
-
-                    viewer.entities.add({ 
-                        id: 'sat_'+c, name: '🛰️ ' + name,
-                        position: Cesium.Cartesian3.fromDegrees(satellite.degreesLong(pGd.longitude), satellite.degreesLat(pGd.latitude), pGd.height * 1000),
-                        point: { pixelSize: 3, color: satColor },
-                        description: `<table><tr><td>Alt:</td><td>${Math.round(pGd.height)}km</td></tr><tr><td>Intel:</td><td><a href="https://www.n2yo.com/satellite/?s=${rec.satnum}" target="_blank">NORAD DATABASE</a></td></tr></table>`
-                    });
-                }
+        function toggleFeed(feed, enabled) {
+            if (enabled && activeFeed && activeFeed !== feed) {
+                document.getElementById('tog-' + activeFeed).checked = false;
+                disableFeed(activeFeed);
+            }
+            activeFeed = enabled ? feed : null;
+            
+            if (enabled) {
+                enableFeed(feed);
+            } else {
+                disableFeed(feed);
             }
         }
 
-        async function fA() {
-            try {
-                const r = await fetch('https://opensky-network.org/api/states/all?lamin=45&lomin=-10&lamax=70&lomax=40');
-                const d = await r.json(); cl('air_');
-                if (d.states) {
-                    d.states.slice(0, 400).forEach(p => {
-                        if (p[5] && p[6]) {
-                            viewer.entities.add({ 
-                                id: 'air_'+p[0], name: '✈️ '+(p[1]||'UNK'), 
-                                position: Cesium.Cartesian3.fromDegrees(p[5], p[6], p[7]||9000),
-                                billboard: { image: planeSVG, width: 18, height: 18, rotation: Cesium.Math.toRadians(p[10] || 0) },
-                                description: `<table><tr><td>ICAO:</td><td>${p[0]}</td></tr><tr><td>Callsign:</td><td>${p[1] || 'N/A'}</td></tr><tr><td>Altitude:</td><td>${Math.round(p[7] || 0)}m</td></tr><tr><td>Track:</td><td><a href="https://www.flightaware.com/live/flight/${p[1]}" target="_blank">AIRCRAFT INTEL</a></td></tr></table>`
-                            });
-                        }
-                    });
-                }
-            } catch (err) { console.log('Aircraft error:', err); }
+        function enableFeed(feed) {
+            switch(feed) {
+                case 'sat': fS(); loops.sat = setInterval(fS, 15000); break;
+                case 'air': fA(); loops.air = setInterval(fA, 10000); break;
+                case 'mar': fM(); loops.mar = setInterval(fM, 15000); break;
+                case 'q': fQ(); loops.q = setInterval(fQ, 30000); break;
+            }
         }
 
-        async function fM() {
+        function disableFeed(feed) {
+            if (loops[feed]) { clearInterval(loops[feed]); delete loops[feed]; }
+            cl(feed + '_');
+            document.getElementById(feed + '-status').textContent = '';
+            updateCount(feed, 0);
+        }
+
+        function cl(p) { 
+            viewer.entities.values.filter(e => e.id && e.id.startsWith(p)).forEach(e => viewer.entities.remove(e)); 
+        }
+
+        function updateCount(type, count) {
+            const el = document.getElementById(type + '-count');
+            if (el) el.textContent = count.toLocaleString();
+        }
+
+        function setStatus(type, msg) {
+            const el = document.getElementById(type + '-status');
+            if (el) el.textContent = msg;
+        }
+
+        // SHIP TYPE COLORS
+        function getShipColor(shipType) {
+            const type = (shipType || 0);
+            if (type >= 70 && type <= 79) return Cesium.Color.fromCssColorString('#ff9900'); // Cargo
+            if (type >= 60 && type <= 69) return Cesium.Color.fromCssColorString('#ffff00'); // Tanker
+            if (type >= 80 && type <= 89) return Cesium.Color.fromCssColorString('#00ff00'); // Passenger
+            if (type >= 30 && type <= 39) return Cesium.Color.fromCssColorString('#00ffff'); // Fishing
+            if (type >= 50 && type <= 59) return Cesium.Color.fromCssColorString('#ff66ff'); // Tug/Service
+            if (type >= 10 && type <= 19) return Cesium.Color.fromCssColorString('#6666ff'); // Navigation
+            if (type >= 90 && type <= 99) return Cesium.Color.fromCssColorString('#ff6600'); // Other
+            return Cesium.Color.fromCssColorString('#00ffff'); // Default cyan
+        }
+
+        function getShipTypeName(shipType) {
+            const type = (shipType || 0);
+            if (type >= 70 && type <= 79) return 'CARGO';
+            if (type >= 60 && type <= 69) return 'TANKER';
+            if (type >= 80 && type <= 89) return 'PASSENGER';
+            if (type >= 30 && type <= 39) return 'FISHING';
+            if (type >= 40 && type <= 49) return 'TANKER';
+            if (type >= 50 && type <= 59) return 'TUG/SERVICE';
+            if (type >= 10 && type <= 19) return 'WING IN GROUND';
+            if (type >= 20 && type <= 29) return 'MILITARY';
+            if (type >= 90 && type <= 99) return 'OTHER';
+            return 'VESSEL';
+        }
+
+        // SATELLITES - FULL CATALOG
+        async function prefetchSats() {
+            if (cachedTLE) return cachedTLE;
+            setStatus('sat', 'Loading TLE...');
             try {
+                const r = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+                cachedTLE = (await r.text()).trim().split('\n');
+                setStatus('sat', 'TLE Ready');
+                return cachedTLE;
+            } catch (e) { 
+                setStatus('sat', 'Error'); 
+                return null; 
+            }
+        }
+        prefetchSats();
+
+        async function fS() {
+            const tle = cachedTLE || await prefetchSats();
+            if (!tle) return;
+            
+            setStatus('sat', 'Tracking...');
+            cl('sat_');
+            const now = new Date();
+            let gmst = satellite.gstime(now);
+            let count = 0;
+            
+            for (let i = 0; i < tle.length - 2; i += 3) {
+                try {
+                    const name = tle[i].trim();
+                    const rec = satellite.twoline2satrec(tle[i+1], tle[i+2]);
+                    const pos = satellite.propagate(rec, now).position;
+                    
+                    if (pos) {
+                        const geo = satellite.eciToGeodetic(pos, gmst);
+                        let color = Cesium.Color.WHITE;
+                        let size = 3;
+                        
+                        if (name.includes('ISS') || name.includes('TIANGONG')) {
+                            color = Cesium.Color.CYAN; size = 6;
+                        } else if (name.includes('STARLINK') || name.includes('IRIDIUM') || name.includes('ONEWEB')) {
+                            color = Cesium.Color.fromCssColorString('#00ff66'); size = 4;
+                        } else if (name.includes('GPS') || name.includes('GALILEO') || name.includes('GLONASS') || name.includes('BEIDOU')) {
+                            color = Cesium.Color.YELLOW; size = 5;
+                        } else if (name.includes('NOAA') || name.includes('SUOMI') || name.includes('TERRA')) {
+                            color = Cesium.Color.GREEN; size = 4;
+                        } else if (name.includes('USA') || name.includes('NROL') || name.includes('MIKK') || name.includes('SDS')) {
+                            color = Cesium.Color.RED; size = 4;
+                        } else if (name.includes('COSMOS') || name.includes('RUS') || name.includes('GLONASS')) {
+                            color = Cesium.Color.ORANGE; size = 3;
+                        } else if (name.includes('GOES') || name.includes('METEOR') || name.includes('JAXA')) {
+                            color = Cesium.Color.MAGENTA; size = 4;
+                        } else if (name.includes('AIS') || name.includes('LEM') || name.includes('SWARM')) {
+                            color = Cesium.Color.CORNFLOWERBLUE; size = 3;
+                        }
+                        
+                        viewer.entities.add({
+                            id: 'sat_' + count,
+                            name: '🛰 ' + name,
+                            position: Cesium.Cartesian3.fromDegrees(
+                                satellite.degreesLong(geo.longitude),
+                                satellite.degreesLat(geo.latitude),
+                                geo.height * 1000
+                            ),
+                            point: { pixelSize: size, color: color },
+                            description: `<table>
+                                <tr><td>Altitude:</td><td>${Math.round(geo.height)} km</td></tr>
+                                <tr><td>Lat:</td><td>${geo.latitude.toFixed(4)}°</td></tr>
+                                <tr><td>Lon:</td><td>${geo.longitude.toFixed(4)}°</td></tr>
+                                <tr><td>Database:</td><td><a href="https://www.n2yo.com/satellite/?s=${rec.satnum}" target="_blank">NORAD TRACKING</a></td></tr>
+                            </table>`
+                        });
+                        count++;
+                    }
+                } catch (e) {}
+            }
+            
+            updateCount('sat', count);
+            setStatus('sat', count.toLocaleString() + ' tracked');
+            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 0, 40000000) });
+        }
+
+        // AVIATION - GLOBAL
+        async function fA() {
+            setStatus('air', 'Fetching...');
+            cl('air_');
+            let count = 0;
+            
+            try {
+                // Fetch from multiple regions for global coverage
+                const bbox = [
+                    { lamin: 25, lomin: -125, lamax: 50, lomax: -65 },  // North America
+                    { lamin: 35, lomin: -10, lamax: 70, lomax: 30 },     // Europe
+                    { lamin: 20, lomin: 70, lamax: 55, lomax: 145 },     // Asia
+                    { lamin: -40, lomin: 110, lamax: -10, lomax: 155 },  // Oceania
+                    { lamin: -35, lomin: -75, lamax: 15, lomax: -30 }    // South America
+                ];
+                
+                for (const box of bbox) {
+                    try {
+                        const url = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
+                        const r = await fetch(url);
+                        const d = await r.json();
+                        
+                        if (d.states) {
+                            d.states.forEach(p => {
+                                if (p[5] && p[6]) {
+                                    const icao = p[0];
+                                    const callsign = (p[1] || '').trim();
+                                    const color = Cesium.Color.WHITE;
+                                    let planeColor = color;
+                                    let size = 14;
+                                    
+                                    // Color code by callsign patterns
+                                    if (/^(BAW|BMA|VIR|TOM|RYR|EZY|UAL|DAL|AAL|SWA|FFT|DLH|AFR|KLM|ANA|TAM|AZA|BRK)/i.test(callsign)) {
+                                        planeColor = Cesium.Color.WHITE; // Commercial
+                                    } else if (/^(RCH|C130|C17|HERC|KC135|TANK|MIL)/i.test(callsign)) {
+                                        planeColor = Cesium.Color.RED; // Military
+                                    } else if (/^(N\s|^E[JKLMN]\s|^F-G)/i.test(callsign) || callsign.length < 3) {
+                                        planeColor = Cesium.Color.fromCssColorString('#ff9900'); // Private
+                                    } else if (/^(AWE|ASA|ASA|FFT|DAL|SWA)/i.test(callsign)) {
+                                        planeColor = Cesium.Color.CYAN; // Low cost
+                                    } else {
+                                        planeColor = Cesium.Color.fromCssColorString('#00ffff'); // Default
+                                    }
+                                    
+                                    viewer.entities.add({
+                                        id: 'air_' + icao,
+                                        name: '✈ ' + (callsign || 'UNK-' + icao.slice(-4)),
+                                        position: Cesium.Cartesian3.fromDegrees(p[5], p[6], p[7] || 10000),
+                                        billboard: { 
+                                            image: planeSVG, 
+                                            width: size, 
+                                            height: size, 
+                                            rotation: Cesium.Math.toRadians(p[10] || 0),
+                                            color: planeColor
+                                        },
+                                        description: `<table>
+                                            <tr><td>ICAO24:</td><td>${icao}</td></tr>
+                                            <tr><td>Callsign:</td><td>${callsign || 'N/A'}</td></tr>
+                                            <tr><td>Origin:</td><td>${p[2] || 'N/A'}</td></tr>
+                                            <tr><td>Destination:</td><td>${p[3] || 'N/A'}</td></tr>
+                                            <tr><td>Altitude:</td><td>${Math.round(p[7] || 0)}m / ${Math.round((p[7] || 0) / 0.3048)}ft</td></tr>
+                                            <tr><td>Speed:</td><td>${Math.round(p[9] || 0)} m/s</td></tr>
+                                            <tr><td>Track:</td><td>${Math.round(p[10] || 0)}°</td></tr>
+                                            <tr><td>Database:</td><td><a href="https://www.flightaware.com/live/flight/${callsign}" target="_blank">FLIGHT INTEL</a></td></tr>
+                                        </table>`
+                                    });
+                                    count++;
+                                }
+                            });
+                        }
+                    } catch (e) { console.log('Region error:', e); }
+                }
+            } catch (err) { console.log('Aircraft fetch error:', err); }
+            
+            updateCount('air', count);
+            setStatus('air', count.toLocaleString() + ' aircraft');
+            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 30, 25000000) });
+        }
+
+        // MARINE - GLOBAL AIS
+        async function fM() {
+            setStatus('mar', 'Fetching AIS...');
+            cl('mar_');
+            let count = 0;
+            
+            try {
+                // Baltic Sea (largest public AIS coverage)
                 const r = await fetch('https://meri.digitraffic.fi/api/ais/v1/locations', {
                     headers: { 'Accept-Encoding': 'gzip' }
                 });
-                const d = await r.json(); cl('mar_');
-                d.features.slice(0, 600).forEach(f => {
-                    const coords = f.geometry.coordinates;
-                    viewer.entities.add({ 
-                        id: 'mar_'+f.mmsi, name: '🚢 MMSI: ' + f.mmsi, 
-                        position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
-                        point: { pixelSize: 6, color: Cesium.Color.CYAN, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
-                        description: `<table><tr><td>Speed:</td><td>${f.properties.sog || 0} kts</td></tr><tr><td>Heading:</td><td>${f.properties.trueHeading || 'N/A'}°</td></tr><tr><td>Name:</td><td>${f.properties.name || 'Unknown'}</td></tr><tr><td>DB:</td><td><a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${f.mmsi}" target="_blank">VESSEL INTEL</a></td></tr></table>`
+                const d = await r.json();
+                
+                if (d.features) {
+                    d.features.forEach(f => {
+                        const coords = f.geometry.coordinates;
+                        const props = f.properties || {};
+                        const mmsi = f.mmsi || 'UNK';
+                        const color = getShipColor(props.shipType);
+                        
+                        viewer.entities.add({
+                            id: 'mar_' + mmsi,
+                            name: '🚢 ' + (props.name || 'MMSI: ' + mmsi),
+                            position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
+                            point: { 
+                                pixelSize: 6, 
+                                color: color,
+                                outlineColor: Cesium.Color.BLACK,
+                                outlineWidth: 1
+                            },
+                            description: `<table>
+                                <tr><td>MMSI:</td><td>${mmsi}</td></tr>
+                                <tr><td>Name:</td><td>${props.name || 'Unknown'}</td></tr>
+                                <tr><td>Type:</td><td>${getShipTypeName(props.shipType)}</td></tr>
+                                <tr><td>Speed:</td><td>${(props.sog || 0).toFixed(1)} kts</td></tr>
+                                <tr><td>Heading:</td><td>${props.trueHeading || 'N/A'}°</td></tr>
+                                <tr><td>Destination:</td><td>${props.destination || 'N/A'}</td></tr>
+                                <tr><td>ETA:</td><td>${props.eta || 'N/A'}</td></tr>
+                                <tr><td>Database:</td><td><a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank">VESSEL INTEL</a></td></tr>
+                            </table>`
+                        });
+                        count++;
                     });
-                });
-                viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(24.93, 60.16, 5000000) });
-            } catch(e) { console.log('Marine error:', e); }
+                }
+                
+                // Add more AIS sources here as available
+                // MarineTraffic public API requires API key
+                // VesselFinder public demo API is limited
+                
+            } catch(e) { 
+                console.log('Marine error:', e);
+                setStatus('mar', 'Error');
+            }
+            
+            updateCount('mar', count);
+            setStatus('mar', count.toLocaleString() + ' vessels');
+            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(20, 60, 8000000) });
         }
 
+        // EARTHQUAKES
         async function fQ() {
+            setStatus('q', 'Loading...');
+            cl('q_');
+            let count = 0;
+            
             try {
                 const r = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson');
-                const d = await r.json(); cl('q_');
+                const d = await r.json();
+                
                 d.features.forEach(f => {
-                    viewer.entities.add({ id: 'q_'+f.id, name: '⚠️ Mag '+f.properties.mag, position: Cesium.Cartesian3.fromDegrees(f.geometry.coordinates[0], f.geometry.coordinates[1]),
-                    point: { pixelSize: f.properties.mag * 3, color: Cesium.Color.RED },
-                    description: `<table><tr><td>Loc:</td><td>${f.properties.place}</td></tr></table>` });
+                    const mag = f.properties.mag;
+                    const color = mag >= 5 ? Cesium.Color.RED : 
+                                  mag >= 4 ? Cesium.Color.ORANGE : 
+                                  mag >= 3 ? Cesium.Color.YELLOW : 
+                                  Cesium.Color.fromCssColorString('#00ff66');
+                    
+                    viewer.entities.add({
+                        id: 'q_' + f.id,
+                        name: '⚠ MAG ' + mag.toFixed(1),
+                        position: Cesium.Cartesian3.fromDegrees(
+                            f.geometry.coordinates[0],
+                            f.geometry.coordinates[1]
+                        ),
+                        point: { pixelSize: Math.max(mag * 3, 4), color: color },
+                        description: `<table>
+                            <tr><td>Magnitude:</td><td>${mag.toFixed(2)}</td></tr>
+                            <tr><td>Location:</td><td>${f.properties.place}</td></tr>
+                            <tr><td>Time:</td><td>${new Date(f.properties.time).toUTCString()}</td></tr>
+                            <tr><td>Depth:</td><td>${f.geometry.coordinates[2].toFixed(1)} km</td></tr>
+                            <tr><td>USGS:</td><td><a href="${f.properties.url}" target="_blank">FULL REPORT</a></td></tr>
+                        </table>`
+                    });
+                    count++;
                 });
-            } catch (err) {}
+            } catch (err) { console.log('Quake error:', err); }
+            
+            updateCount('quake', count);
+            setStatus('q', count + ' quakes');
+            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000) });
         }
 
-        async function fC() {
-            try {
-                const r = await fetch('https://data.seattle.gov/resource/xqku-cgqf.json');
-                const d = await r.json();
-                d.forEach(cam => {
-                    viewer.entities.add({ id: 'cam_'+cam.cameralabel, name: '📹 '+cam.cameralabel, position: Cesium.Cartesian3.fromDegrees(cam.location.coordinates[0], cam.location.coordinates[1]),
-                    point: { pixelSize: 10, color: Cesium.Color.CYAN },
-                    description: `<center><img src="${c.imageurl.url}"/><p>LIVE SURVEILLANCE</p></center>` });
-                });
-                viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(-122.33, 47.6, 60000) });
-            } catch (err) {}
-        }
+        // Initial camera position
+        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000) });
     </script>
 </body>
 </html>
