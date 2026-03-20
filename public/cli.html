@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Trading Bot - CLI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1a1a2e; color: #eee; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
+        .terminal { height: 100vh; display: flex; flex-direction: column; padding: 20px; }
+        .output { flex: 1; overflow-y: auto; white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+        .input-line { display: flex; align-items: center; margin-top: 10px; }
+        .prompt { color: #4ade80; margin-right: 8px; }
+        input { flex: 1; background: transparent; border: none; color: #fff; font-family: inherit; font-size: 14px; outline: none; }
+        .cmd { color: #60a5fa; }
+        .output-line { margin: 4px 0; }
+        .error { color: #f87171; }
+        .success { color: #4ade80; }
+        .info { color: #a78bfa; }
+        header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #333; margin-bottom: 20px; }
+        header h1 { font-size: 24px; color: #4ade80; }
+        header p { color: #888; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <header>
+            <h1>Crypto Trading Bot - CLI</h1>
+            <p>REST API running at http://localhost:3000/api</p>
+        </header>
+        <div class="output" id="output">
+            <div class="output-line info">Welcome to the Crypto Trading Bot CLI Terminal</div>
+            <div class="output-line info">Type 'help' for available commands</div>
+            <div class="output-line info">Web Dashboard: http://localhost:3000/</div>
+            <div class="output-line info">REST API: http://localhost:3000/api</div>
+            <div class="output-line">---</div>
+        </div>
+        <div class="input-line">
+            <span class="prompt">$</span>
+            <input type="text" id="cmd" placeholder="Enter command..." autofocus>
+        </div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const cmdInput = document.getElementById('cmd');
+        const history = [];
+        let historyIndex = -1;
+
+        async function api(endpoint, options = {}) {
+            try {
+                const response = await fetch(`/api${endpoint}`, options);
+                return await response.json();
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        function print(text, type = '') {
+            const line = document.createElement('div');
+            line.className = `output-line ${type}`;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function printJSON(data) {
+            const line = document.createElement('div');
+            line.className = 'output-line';
+            line.textContent = JSON.stringify(data, null, 2);
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        async function handleCommand(cmd) {
+            const trimmed = cmd.trim();
+            if (!trimmed) return;
+
+            history.push(trimmed);
+            historyIndex = history.length;
+
+            print(`$ ${trimmed}`, 'cmd');
+
+            const parts = trimmed.toLowerCase().split(' ');
+            const command = parts[0];
+            const args = parts.slice(1);
+
+            switch (command) {
+                case 'help':
+                    print('Available commands:');
+                    print('  status          - Show bot status');
+                    print('  balance         - Show account balance');
+                    print('  portfolio       - Show portfolio');
+                    print('  strategies      - Show active strategies');
+                    print('  orders          - Show open orders');
+                    print('  history         - Show trade history');
+                    print('  trade <buy/sell> <symbol> <amount> [price] - Place order');
+                    print('  mode <paper/live> - Switch trading mode');
+                    print('  ticker <symbol> - Get current price');
+                    print('  clear           - Clear terminal');
+                    break;
+
+                case 'status':
+                    const status = await api('/status');
+                    print('Bot Status:');
+                    print(`  Mode: ${status.mode.toUpperCase()}`);
+                    print(`  Active Strategies: ${status.activeStrategies?.length || 0}`);
+                    print(`  Total Value: $${status.portfolio?.totalValue?.toFixed(2) || 0}`);
+                    break;
+
+                case 'balance':
+                    const bal = await api('/balance');
+                    print('Balance:');
+                    print(`  USD: ${bal.free?.USD || 0}`);
+                    print(`  BTC: ${bal.free?.BTC || 0}`);
+                    break;
+
+                case 'portfolio':
+                    const port = await api('/portfolio');
+                    print('Portfolio:');
+                    print(`  Total Value: $${port.totalValue?.toFixed(2) || 0}`);
+                    print(`  P&L: $${port.pnl?.toFixed(2) || 0} (${port.pnlPercent?.toFixed(2) || 0}%)`);
+                    port.holdings?.forEach(h => {
+                        print(`  ${h.asset}: ${h.amount} ($${h.value.toFixed(2)})`);
+                    });
+                    break;
+
+                case 'strategies':
+                    const strats = await api('/strategies/active');
+                    if (strats.length === 0) {
+                        print('No active strategies');
+                    } else {
+                        strats.forEach(s => {
+                            print(`${s.type} on ${s.symbol} - Profit: $${s.profit.toFixed(2)}`);
+                        });
+                    }
+                    break;
+
+                case 'orders':
+                    const orders = await api('/orders');
+                    if (orders.length === 0) {
+                        print('No open orders');
+                    } else {
+                        orders.forEach(o => {
+                            print(`${o.side.toUpperCase()} ${o.amount} ${o.symbol} @ ${o.price || 'Market'}`);
+                        });
+                    }
+                    break;
+
+                case 'history':
+                    const trades = await api('/trades?limit=20');
+                    if (trades.length === 0) {
+                        print('No trade history');
+                    } else {
+                        trades.forEach(t => {
+                            print(`${new Date(t.timestamp).toLocaleString()} | ${t.side.toUpperCase()} | ${t.amount} ${t.symbol} @ $${t.price.toFixed(2)}`);
+                        });
+                    }
+                    break;
+
+                case 'ticker':
+                    const symbol = args[0] || 'BTC/USD';
+                    const ticker = await api(`/ticker?symbol=${symbol}`);
+                    print(`${symbol}: $${ticker.price?.toFixed(2) || 'N/A'}`);
+                    break;
+
+                case 'mode':
+                    const newMode = args[0];
+                    if (newMode !== 'paper' && newMode !== 'live') {
+                        print('Usage: mode <paper|live>', 'error');
+                    } else {
+                        await api('/mode', {
+                            method: 'POST',
+                            body: JSON.stringify({ mode: newMode })
+                        });
+                        print(`Switched to ${newMode} mode`, 'success');
+                    }
+                    break;
+
+                case 'clear':
+                    output.innerHTML = '';
+                    break;
+
+                case 'trade':
+                    if (args.length < 3) {
+                        print('Usage: trade <buy|sell> <symbol> <amount> [price]', 'error');
+                    } else {
+                        const [side, symbol, amount, price] = args;
+                        const order = await api('/trade', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                symbol,
+                                side,
+                                amount: parseFloat(amount),
+                                type: price ? 'limit' : 'market',
+                                price: price ? parseFloat(price) : undefined
+                            })
+                        });
+                        if (order.order) {
+                            print(`Order placed: ${order.order.id}`, 'success');
+                        } else {
+                            print(`Failed: ${order.error}`, 'error');
+                        }
+                    }
+                    break;
+
+                default:
+                    print(`Unknown command: ${command}`, 'error');
+                    print('Type "help" for available commands', 'info');
+            }
+        }
+
+        cmdInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                await handleCommand(cmdInput.value);
+                cmdInput.value = '';
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    cmdInput.value = history[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < history.length - 1) {
+                    historyIndex++;
+                    cmdInput.value = history[historyIndex];
+                } else {
+                    historyIndex = history.length;
+                    cmdInput.value = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
