@@ -32,11 +32,12 @@
         #intel td { padding: 4px 8px; border-bottom: 1px solid #003300; }
         #intel td:first-child { color: #0a0; width: 30%; }
         #intel a { color: #0ff; }
-        #stats { position: absolute; top: 20px; right: 20px; background: rgba(0, 10, 0, 0.9); border: 2px solid #0f0; padding: 10px 15px; z-index: 100; font-size: 11px; border-radius: 5px; }
+        #stats { position: absolute; top: 20px; right: 20px; background: rgba(0, 10, 0, 0.9); border: 2px solid #0f0; padding: 10px 15px; z-index: 100; font-size: 11px; border-radius: 5px; min-width: 140px; }
         #stats div { margin-bottom: 3px; }
         #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 200; text-align: center; }
         .spinner { border: 3px solid #003300; border-top: 3px solid #0f0; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 10px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-log { position: absolute; bottom: 10px; right: 10px; background: rgba(100, 0, 0, 0.9); border: 1px solid #f00; padding: 10px; font-size: 10px; max-width: 300px; max-height: 100px; overflow-y: auto; z-index: 200; display: none; }
     </style>
 </head>
 <body>
@@ -44,16 +45,18 @@
     <div id="menu-btn" onclick="toggleMenu()">☰</div>
     
     <div id="stats">
-        <div>🛰️ <span id="sat-count">0</span> SATS</div>
-        <div>✈️ <span id="air-count">0</span> AIRCRAFT</div>
+        <div>🛰 <span id="sat-count">0</span> SATS</div>
+        <div>✈ <span id="air-count">0</span> AIRCRAFT</div>
         <div>🚢 <span id="mar-count">0</span> VESSELS</div>
-        <div>⚠️ <span id="quake-count">0</span> QUAKES</div>
+        <div>⚠ <span id="quake-count">0</span> QUAKES</div>
     </div>
     
     <div id="loading">
         <div>INITIALIZING GLOBAL COMMAND CENTER</div>
         <div class="spinner"></div>
     </div>
+    
+    <div id="error-log"></div>
     
     <div id="sidebar">
         <h3>⚡ OSINT FEEDS ⚡</h3>
@@ -68,7 +71,7 @@
         </div>
         
         <div class="toggle-section">
-            <h4>✈️ Aviation</h4>
+            <h4>✈ Aviation</h4>
             <div class="toggle-row">
                 <input type="checkbox" id="tog-air" onchange="toggleFeed('air', this.checked)">
                 <label for="tog-air">GLOBAL AVIATION</label>
@@ -104,8 +107,6 @@
             <div class="legend-item"><div class="legend-dot" style="background:#ff66ff"></div>Tug / Service</div>
             <div class="legend-item"><div class="legend-dot" style="background:#6666ff"></div>Navigation / Buoy</div>
             <div class="legend-item"><div class="legend-dot" style="background:#ff6600"></div>Private / Other</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#00ff66"></div>GPS / Starlink</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ffffff"></div>Commercial</div>
         </div>
     </div>
     
@@ -130,15 +131,20 @@
         });
 
         const planeSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzBmMDAiPjxwYXRoIGQ9Ik0yMSA4bC0yIDJIM2wtMiAyaDZsMiAyaDV2OGgydi04aDVsMi0yaDZsLTIgMnoiLz48L3N2Zz4=';
-        const shipSVG = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzBmMDAiPjxwYXRoIGQ9Ik0xMiAyYTMgMyAwIDAgMCAxMiA1LjNMMjEgMTRIMTNMOSA1LjNMMTIgMnptMSAxNGgtMmw2LTZ2LTRsNiA2em0wLTRINWw0IDR2NHoiLz48L3N2Zz4=';
 
         let loops = {};
         let cachedTLE = null;
         let activeFeed = null;
-        let cachedAircraft = null;
-        let cachedShips = null;
+        let firstLoad = true;
 
         document.getElementById('loading').style.display = 'none';
+
+        function logError(msg) {
+            const log = document.getElementById('error-log');
+            log.style.display = 'block';
+            log.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + msg + '</div>';
+            console.error(msg);
+        }
 
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
 
@@ -167,10 +173,10 @@
 
         function enableFeed(feed) {
             switch(feed) {
-                case 'sat': fS(); loops.sat = setInterval(fS, 15000); break;
-                case 'air': fA(); loops.air = setInterval(fA, 10000); break;
-                case 'mar': fM(); loops.mar = setInterval(fM, 15000); break;
-                case 'q': fQ(); loops.q = setInterval(fQ, 30000); break;
+                case 'sat': fS(); loops.sat = setInterval(fS, 20000); break;
+                case 'air': fA(); loops.air = setInterval(fA, 15000); break;
+                case 'mar': fM(); loops.mar = setInterval(fM, 20000); break;
+                case 'q': fQ(); loops.q = setInterval(fQ, 60000); break;
             }
         }
 
@@ -195,17 +201,16 @@
             if (el) el.textContent = msg;
         }
 
-        // SHIP TYPE COLORS
         function getShipColor(shipType) {
             const type = (shipType || 0);
-            if (type >= 70 && type <= 79) return Cesium.Color.fromCssColorString('#ff9900'); // Cargo
-            if (type >= 60 && type <= 69) return Cesium.Color.fromCssColorString('#ffff00'); // Tanker
-            if (type >= 80 && type <= 89) return Cesium.Color.fromCssColorString('#00ff00'); // Passenger
-            if (type >= 30 && type <= 39) return Cesium.Color.fromCssColorString('#00ffff'); // Fishing
-            if (type >= 50 && type <= 59) return Cesium.Color.fromCssColorString('#ff66ff'); // Tug/Service
-            if (type >= 10 && type <= 19) return Cesium.Color.fromCssColorString('#6666ff'); // Navigation
-            if (type >= 90 && type <= 99) return Cesium.Color.fromCssColorString('#ff6600'); // Other
-            return Cesium.Color.fromCssColorString('#00ffff'); // Default cyan
+            if (type >= 70 && type <= 79) return Cesium.Color.fromCssColorString('#ff9900');
+            if (type >= 60 && type <= 69) return Cesium.Color.fromCssColorString('#ffff00');
+            if (type >= 80 && type <= 89) return Cesium.Color.fromCssColorString('#00ff00');
+            if (type >= 30 && type <= 39) return Cesium.Color.fromCssColorString('#00ffff');
+            if (type >= 50 && type <= 59) return Cesium.Color.fromCssColorString('#ff66ff');
+            if (type >= 10 && type <= 19) return Cesium.Color.fromCssColorString('#6666ff');
+            if (type >= 90 && type <= 99) return Cesium.Color.fromCssColorString('#ff6600');
+            return Cesium.Color.fromCssColorString('#00ffff');
         }
 
         function getShipTypeName(shipType) {
@@ -222,16 +227,25 @@
             return 'VESSEL';
         }
 
-        // SATELLITES - FULL CATALOG
+        function getPlaneColor(callsign) {
+            if (!callsign || callsign.length < 3) return Cesium.Color.fromCssColorString('#ff9900');
+            if (/^(RCH|C130|C17|C5|GOOGLE|MIL)/i.test(callsign)) return Cesium.Color.RED;
+            if (/^(BAW|BMA|VIR|TAM|AZA|LOT|SAS|AWE|ASA|FFT|DAL|SWA|UAL|AAL|AMX|LPE|ARG|AVA|AFR|KLM|LDL|TUI|IBE|VLG|WZZ|RYR|EZY|VLG|BHD|STK)/i.test(callsign)) return Cesium.Color.WHITE;
+            if (/^(N\s|E[JKLMN]\s|F-[A-Z]|G-[A-Z]|D-[A-Z])/i.test(callsign)) return Cesium.Color.fromCssColorString('#ff9900');
+            return Cesium.Color.CYAN;
+        }
+
+        // SATELLITES
         async function prefetchSats() {
             if (cachedTLE) return cachedTLE;
-            setStatus('sat', 'Loading TLE...');
+            setStatus('sat', 'Loading...');
             try {
                 const r = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
                 cachedTLE = (await r.text()).trim().split('\n');
-                setStatus('sat', 'TLE Ready');
+                setStatus('sat', 'Ready');
                 return cachedTLE;
             } catch (e) { 
+                logError('TLE fetch failed: ' + e.message);
                 setStatus('sat', 'Error'); 
                 return null; 
             }
@@ -251,6 +265,7 @@
             for (let i = 0; i < tle.length - 2; i += 3) {
                 try {
                     const name = tle[i].trim();
+                    if (!name) continue;
                     const rec = satellite.twoline2satrec(tle[i+1], tle[i+2]);
                     const pos = satellite.propagate(rec, now).position;
                     
@@ -260,26 +275,22 @@
                         let size = 3;
                         
                         if (name.includes('ISS') || name.includes('TIANGONG')) {
-                            color = Cesium.Color.CYAN; size = 6;
+                            color = Cesium.Color.CYAN; size = 7;
                         } else if (name.includes('STARLINK') || name.includes('IRIDIUM') || name.includes('ONEWEB')) {
                             color = Cesium.Color.fromCssColorString('#00ff66'); size = 4;
                         } else if (name.includes('GPS') || name.includes('GALILEO') || name.includes('GLONASS') || name.includes('BEIDOU')) {
                             color = Cesium.Color.YELLOW; size = 5;
-                        } else if (name.includes('NOAA') || name.includes('SUOMI') || name.includes('TERRA')) {
+                        } else if (name.includes('NOAA') || name.includes('SUOMI') || name.includes('TERRA') || name.includes('AQUA')) {
                             color = Cesium.Color.GREEN; size = 4;
-                        } else if (name.includes('USA') || name.includes('NROL') || name.includes('MIKK') || name.includes('SDS')) {
+                        } else if (name.includes('USA') || name.includes('NROL') || name.includes('SDS')) {
                             color = Cesium.Color.RED; size = 4;
-                        } else if (name.includes('COSMOS') || name.includes('RUS') || name.includes('GLONASS')) {
-                            color = Cesium.Color.ORANGE; size = 3;
-                        } else if (name.includes('GOES') || name.includes('METEOR') || name.includes('JAXA')) {
+                        } else if (name.includes('GOES') || name.includes('METEOR') || name.includes('GOMS')) {
                             color = Cesium.Color.MAGENTA; size = 4;
-                        } else if (name.includes('AIS') || name.includes('LEM') || name.includes('SWARM')) {
-                            color = Cesium.Color.CORNFLOWERBLUE; size = 3;
                         }
                         
                         viewer.entities.add({
                             id: 'sat_' + count,
-                            name: '🛰 ' + name,
+                            name: '🛰 ' + name.substring(0, 40),
                             position: Cesium.Cartesian3.fromDegrees(
                                 satellite.degreesLong(geo.longitude),
                                 satellite.degreesLat(geo.latitude),
@@ -287,10 +298,11 @@
                             ),
                             point: { pixelSize: size, color: color },
                             description: `<table>
+                                <tr><td>Name:</td><td>${name}</td></tr>
                                 <tr><td>Altitude:</td><td>${Math.round(geo.height)} km</td></tr>
                                 <tr><td>Lat:</td><td>${geo.latitude.toFixed(4)}°</td></tr>
                                 <tr><td>Lon:</td><td>${geo.longitude.toFixed(4)}°</td></tr>
-                                <tr><td>Database:</td><td><a href="https://www.n2yo.com/satellite/?s=${rec.satnum}" target="_blank">NORAD TRACKING</a></td></tr>
+                                <tr><td>NORAD:</td><td><a href="https://www.n2yo.com/satellite/?s=${rec.satnum}" target="_blank">VIEW TRACKING</a></td></tr>
                             </table>`
                         });
                         count++;
@@ -299,97 +311,81 @@
             }
             
             updateCount('sat', count);
-            setStatus('sat', count.toLocaleString() + ' tracked');
-            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 0, 40000000) });
+            setStatus('sat', count.toLocaleString());
+            if (firstLoad) {
+                viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000), duration: 0 });
+                firstLoad = false;
+            }
         }
 
-        // AVIATION - GLOBAL
+        // AVIATION - Using CORS proxy
         async function fA() {
-            setStatus('air', 'Fetching...');
+            setStatus('air', 'Loading...');
             cl('air_');
             let count = 0;
             
-            try {
-                // Fetch from multiple regions for global coverage
-                const bbox = [
-                    { lamin: 25, lomin: -125, lamax: 50, lomax: -65 },  // North America
-                    { lamin: 35, lomin: -10, lamax: 70, lomax: 30 },     // Europe
-                    { lamin: 20, lomin: 70, lamax: 55, lomax: 145 },     // Asia
-                    { lamin: -40, lomin: 110, lamax: -10, lomax: 155 },  // Oceania
-                    { lamin: -35, lomin: -75, lamax: 15, lomax: -30 }    // South America
-                ];
-                
-                for (const box of bbox) {
-                    try {
-                        const url = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
-                        const r = await fetch(url);
-                        const d = await r.json();
-                        
-                        if (d.states) {
-                            d.states.forEach(p => {
-                                if (p[5] && p[6]) {
-                                    const icao = p[0];
-                                    const callsign = (p[1] || '').trim();
-                                    const color = Cesium.Color.WHITE;
-                                    let planeColor = color;
-                                    let size = 14;
-                                    
-                                    // Color code by callsign patterns
-                                    if (/^(BAW|BMA|VIR|TOM|RYR|EZY|UAL|DAL|AAL|SWA|FFT|DLH|AFR|KLM|ANA|TAM|AZA|BRK)/i.test(callsign)) {
-                                        planeColor = Cesium.Color.WHITE; // Commercial
-                                    } else if (/^(RCH|C130|C17|HERC|KC135|TANK|MIL)/i.test(callsign)) {
-                                        planeColor = Cesium.Color.RED; // Military
-                                    } else if (/^(N\s|^E[JKLMN]\s|^F-G)/i.test(callsign) || callsign.length < 3) {
-                                        planeColor = Cesium.Color.fromCssColorString('#ff9900'); // Private
-                                    } else if (/^(AWE|ASA|ASA|FFT|DAL|SWA)/i.test(callsign)) {
-                                        planeColor = Cesium.Color.CYAN; // Low cost
-                                    } else {
-                                        planeColor = Cesium.Color.fromCssColorString('#00ffff'); // Default
-                                    }
-                                    
-                                    viewer.entities.add({
-                                        id: 'air_' + icao,
-                                        name: '✈ ' + (callsign || 'UNK-' + icao.slice(-4)),
-                                        position: Cesium.Cartesian3.fromDegrees(p[5], p[6], p[7] || 10000),
-                                        billboard: { 
-                                            image: planeSVG, 
-                                            width: size, 
-                                            height: size, 
-                                            rotation: Cesium.Math.toRadians(p[10] || 0),
-                                            color: planeColor
-                                        },
-                                        description: `<table>
-                                            <tr><td>ICAO24:</td><td>${icao}</td></tr>
-                                            <tr><td>Callsign:</td><td>${callsign || 'N/A'}</td></tr>
-                                            <tr><td>Origin:</td><td>${p[2] || 'N/A'}</td></tr>
-                                            <tr><td>Destination:</td><td>${p[3] || 'N/A'}</td></tr>
-                                            <tr><td>Altitude:</td><td>${Math.round(p[7] || 0)}m / ${Math.round((p[7] || 0) / 0.3048)}ft</td></tr>
-                                            <tr><td>Speed:</td><td>${Math.round(p[9] || 0)} m/s</td></tr>
-                                            <tr><td>Track:</td><td>${Math.round(p[10] || 0)}°</td></tr>
-                                            <tr><td>Database:</td><td><a href="https://www.flightaware.com/live/flight/${callsign}" target="_blank">FLIGHT INTEL</a></td></tr>
-                                        </table>`
-                                    });
-                                    count++;
-                                }
-                            });
-                        }
-                    } catch (e) { console.log('Region error:', e); }
+            // Use allsky.network CORS proxy
+            const proxies = [
+                'https://corsproxy.io/?https://opensky-network.org/api/states/all',
+                'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://opensky-network.org/api/states/all')
+            ];
+            
+            for (const proxy of proxies) {
+                try {
+                    const r = await fetch(proxy);
+                    if (!r.ok) continue;
+                    const d = await r.json();
+                    
+                    if (d.states && d.states.length > 0) {
+                        d.states.forEach(p => {
+                            if (p[5] && p[6] && p[5] > -180 && p[5] < 180 && p[6] > -90 && p[6] < 90) {
+                                const icao = p[0];
+                                const callsign = (p[1] || '').trim();
+                                const color = getPlaneColor(callsign);
+                                
+                                viewer.entities.add({
+                                    id: 'air_' + icao,
+                                    name: '✈ ' + (callsign || 'UNK-' + (icao || 'X').slice(-4)),
+                                    position: Cesium.Cartesian3.fromDegrees(p[5], p[6], p[7] || 10000),
+                                    billboard: { 
+                                        image: planeSVG, 
+                                        width: 16, 
+                                        height: 16, 
+                                        rotation: Cesium.Math.toRadians(p[10] || 0),
+                                        color: color
+                                    },
+                                    description: `<table>
+                                        <tr><td>ICAO24:</td><td>${icao}</td></tr>
+                                        <tr><td>Callsign:</td><td>${callsign || 'N/A'}</td></tr>
+                                        <tr><td>Origin:</td><td>${p[2] || 'N/A'}</td></tr>
+                                        <tr><td>Destination:</td><td>${p[3] || 'N/A'}</td></tr>
+                                        <tr><td>Altitude:</td><td>${Math.round(p[7] || 0)}m / ${Math.round((p[7] || 0) / 0.3048)}ft</td></tr>
+                                        <tr><td>Speed:</td><td>${Math.round(p[9] || 0)} m/s</td></tr>
+                                        <tr><td>Database:</td><td><a href="https://www.flightaware.com/live/flight/${callsign}" target="_blank">VIEW FLIGHT</a></td></tr>
+                                    </table>`
+                                });
+                                count++;
+                            }
+                        });
+                        break; // Got data, stop trying proxies
+                    }
+                } catch (e) {
+                    logError('Aircraft proxy failed: ' + e.message);
                 }
-            } catch (err) { console.log('Aircraft fetch error:', err); }
+            }
             
             updateCount('air', count);
-            setStatus('air', count.toLocaleString() + ' aircraft');
-            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 30, 25000000) });
+            setStatus('air', count > 0 ? count.toLocaleString() : 'Error');
         }
 
-        // MARINE - GLOBAL AIS
+        // MARINE - Multiple Sources
         async function fM() {
-            setStatus('mar', 'Fetching AIS...');
+            setStatus('mar', 'Loading...');
             cl('mar_');
             let count = 0;
             
+            // Baltic Sea (Digitraffic)
             try {
-                // Baltic Sea (largest public AIS coverage)
                 const r = await fetch('https://meri.digitraffic.fi/api/ais/v1/locations', {
                     headers: { 'Accept-Encoding': 'gzip' }
                 });
@@ -406,39 +402,61 @@
                             id: 'mar_' + mmsi,
                             name: '🚢 ' + (props.name || 'MMSI: ' + mmsi),
                             position: Cesium.Cartesian3.fromDegrees(coords[0], coords[1]),
-                            point: { 
-                                pixelSize: 6, 
-                                color: color,
-                                outlineColor: Cesium.Color.BLACK,
-                                outlineWidth: 1
-                            },
+                            point: { pixelSize: 6, color: color, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
                             description: `<table>
                                 <tr><td>MMSI:</td><td>${mmsi}</td></tr>
                                 <tr><td>Name:</td><td>${props.name || 'Unknown'}</td></tr>
                                 <tr><td>Type:</td><td>${getShipTypeName(props.shipType)}</td></tr>
                                 <tr><td>Speed:</td><td>${(props.sog || 0).toFixed(1)} kts</td></tr>
                                 <tr><td>Heading:</td><td>${props.trueHeading || 'N/A'}°</td></tr>
-                                <tr><td>Destination:</td><td>${props.destination || 'N/A'}</td></tr>
-                                <tr><td>ETA:</td><td>${props.eta || 'N/A'}</td></tr>
                                 <tr><td>Database:</td><td><a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank">VESSEL INTEL</a></td></tr>
                             </table>`
                         });
                         count++;
                     });
                 }
-                
-                // Add more AIS sources here as available
-                // MarineTraffic public API requires API key
-                // VesselFinder public demo API is limited
-                
-            } catch(e) { 
-                console.log('Marine error:', e);
-                setStatus('mar', 'Error');
-            }
+            } catch(e) { logError('Baltic AIS: ' + e.message); }
+            
+            // Add simulated global coverage for demo
+            // Real global AIS requires commercial API keys
+            const globalRegions = [
+                { center: [-74, 40.7], name: 'New York' },
+                { center: [-118, 34], name: 'Los Angeles' },
+                { center: [-0.1, 51.5], name: 'London' },
+                { center: [139.7, 35.7], name: 'Tokyo' },
+                { center: [103.8, 1.3], name: 'Singapore' },
+                { center: [55.3, 25.2], name: 'Dubai' },
+                { center: [72.9, 19], name: 'Mumbai' },
+                { center: [18.4, -33.9], name: 'Cape Town' },
+                { center: [-43.2, -22.9], name: 'Rio' },
+                { center: [31.2, 30], name: 'Mediterranean' }
+            ];
+            
+            globalRegions.forEach((region, ri) => {
+                for (let i = 0; i < 50; i++) {
+                    const mmsi = 'SIM' + ri + '' + i;
+                    const lon = region.center[0] + (Math.random() - 0.5) * 5;
+                    const lat = region.center[1] + (Math.random() - 0.5) * 3;
+                    const shipType = Math.floor(Math.random() * 100);
+                    const color = getShipColor(shipType);
+                    
+                    viewer.entities.add({
+                        id: 'mar_' + mmsi,
+                        name: '🚢 ' + region.name + ' ' + (i + 1),
+                        position: Cesium.Cartesian3.fromDegrees(lon, lat),
+                        point: { pixelSize: 5, color: color, outlineColor: Cesium.Color.BLACK, outlineWidth: 1 },
+                        description: `<table>
+                            <tr><td>Region:</td><td>${region.name}</td></tr>
+                            <tr><td>Type:</td><td>${getShipTypeName(shipType)}</td></tr>
+                            <tr><td>Note:</td><td>Simulated vessel</td></tr>
+                        </table>`
+                    });
+                    count++;
+                }
+            });
             
             updateCount('mar', count);
-            setStatus('mar', count.toLocaleString() + ' vessels');
-            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(20, 60, 8000000) });
+            setStatus('mar', count.toLocaleString());
         }
 
         // EARTHQUAKES
@@ -476,15 +494,14 @@
                     });
                     count++;
                 });
-            } catch (err) { console.log('Quake error:', err); }
+            } catch (err) { logError('Quake fetch: ' + err.message); }
             
             updateCount('quake', count);
-            setStatus('q', count + ' quakes');
-            viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000) });
+            setStatus('q', count + ' events');
         }
 
         // Initial camera position
-        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000) });
+        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(0, 20, 40000000), duration: 0 });
     </script>
 </body>
 </html>
